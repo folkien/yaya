@@ -24,6 +24,7 @@
     - [2.6 Sesje](#26-sesje)
   - [3. Modele danych](#3-modele-danych)
     - [3.1 Typowanie](#31-typowanie)
+    - [3.1a Strategia modelowania danych — dataclass vs Pydantic](#31a-strategia-modelowania-danych--dataclass-vs-pydantic)
     - [3.2 Annote — adnotacja bounding-box](#32-annote--adnotacja-bounding-box)
     - [3.3 Enumy domenowe](#33-enumy-domenowe)
     - [3.4 Metrics — metryki ewaluacji](#34-metrics--metryki-ewaluacji)
@@ -52,6 +53,7 @@
       - [Metryki i algebra](#metryki-i-algebra)
       - [Infrastruktura](#infrastruktura)
     - [4.4 Warstwa prezentacji (GUI)](#44-warstwa-prezentacji-gui)
+      - [Internacjonalizacja (i18n)](#internacjonalizacja-i18n)
       - [MainWindowGui — kontroler głównego okna](#mainwindowgui--kontroler-głównego-okna)
       - [ViewerEditorImage — interaktywny edytor obrazu](#viewereditorimage--interaktywny-edytor-obrazu)
       - [Widoki tabel (views/)](#widoki-tabel-views)
@@ -72,6 +74,7 @@
     - [6.3 Pliki testowe](#63-pliki-testowe)
     - [6.4 Mockowanie](#64-mockowanie)
     - [6.5 Analiza statyczna i lint](#65-analiza-statyczna-i-lint)
+      - [Zasady organizacji importów](#zasady-organizacji-importów)
 
 ---
 
@@ -89,7 +92,7 @@ YAYA jest narzędziem dla inżynierów danych i badaczy Computer Vision. Realizu
 
 ### 1.2 Diagram warstw
 
-Monolityczna aplikacja desktopowa — pojedynczy proces, bez konteneryzacji.
+Monolityczna aplikacja desktopowa — pojedynczy proces.
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -111,6 +114,8 @@ Monolityczna aplikacja desktopowa — pojedynczy proces, bez konteneryzacji.
    │  (boxes, metrics, files, visuals) │
    └───────────────────────────────────┘
 ```
+
+> **Konteneryzacja — perspektywa rozwoju:** Warstwa GUI (PyQt5) z natury wymaga bezpośredniego dostępu do systemu okienkowego i nie podlega konteneryzacji. Natomiast warstwa detekcji (`Detectors/`) jest bezstanowa i intensywna obliczeniowo — stanowi naturalnego kandydata do wydzielenia jako kontenerowy worker (Docker + NVIDIA Container Toolkit). Potencjalny model: GUI komunikuje się z workerami detekcji przez kolejkę zadań (np. ZeroMQ, Redis) lub gRPC — bez wystawiania portów zewnętrznych. Taka architektura umożliwiłaby: (a) izolację zależności GPU, (b) skalowanie horyzontalne detekcji, (c) uruchamianie workerów na zdalnych maszynach. **Decyzja:** aktualnie projekt pozostaje monolitem; refaktoryzacja do modelu worker opisana jest jako przyszły kierunek, gdy skala przetwarzania tego wymusi.
 
 ### 1.3 Podział odpowiedzialności
 
@@ -241,15 +246,28 @@ Pliki generowane w katalogu obrazów:
 
 ### 2.5 Modele detektorów
 
-Wagi modeli nie są wersjonowane (brak Git LFS). Umieszczane ręcznie w podkatalogach `Detectors/`.
+Wagi modeli (pliki `.weights`, `.pt`) są artefaktami binarnymi o rozmiarze rzędu setek MB. **Muszą** być zarządzane przez **Git LFS**, aby repozytorium pozostało responsywne. Pliki metadanych (`.cfg`, `.data`, `.names`) są zwykłymi plikami tekstowymi i mogą być wersjonowane standardowo.
+
+**Konfiguracja Git LFS** (jednorazowa inicjalizacja):
+
+```bash
+git lfs install
+git lfs track "Detectors/**/*.weights"
+git lfs track "Detectors/**/*.pt"
+# Reguły zapisywane w .gitattributes (wersjonowany)
+```
+
+**Struktura katalogu modelu:**
 
 ```
 Detectors/<nazwa_modelu>/
-├── model.cfg / model.pt      # Wagi sieci
-├── model.weights              # Wagi (Darknet)
+├── model.cfg / model.pt      # Wagi sieci (Git LFS)
+├── model.weights              # Wagi Darknet (Git LFS)
 ├── model.data                 # Metadane (Darknet)
 └── model.names                # Nazwy klas
 ```
+
+> **Uwaga:** Po migracji z ręcznego umieszczania plików na Git LFS należy wykonać `git lfs migrate import` na istniejących plikach binarnych, a następnie wymusić `git push --force` na dotkniętych branchach.
 
 Fabryka `ListDetectors()` skanuje podkatalogi i wykrywa modele na podstawie rozszerzeń (`.cfg`+`.weights`+`.names` lub `.pt`+`.names`).
 
@@ -269,6 +287,22 @@ Projekt stosuje Pyright w trybie `strict`. Zasady:
 - Składnia Python 3.10+: `list[str]`, `str | None` (nie `List[str]`, `Optional[str]`).
 - `TYPE_CHECKING` jest **zabroniony** — import musi być bezwarunkowy i dostępny w runtime.
 - Tablice NumPy: alias `NumpyArray` z `helpers.aisp_typing`.
+
+### 3.1a Strategia modelowania danych — dataclass vs Pydantic
+
+Obecnie modele danych (`Metrics`, `Visuals`, `Session`, `Detection`, `Annote`) są zaimplementowane jako `@dataclass`. Dla nowych, złożonych modeli danych — szczególnie tych przyjmujących dane z zewnątrz (pliki, API, konfiguracja użytkownika) — **zaleca się** stosowanie **Pydantic `BaseModel`**, co zapewnia:
+
+- **Automatyczną walidację typów** w runtime (nie tylko statycznie przez Pyright).
+- **Koercję typów** — np. `"42"` → `42` przy odczycie z pliku.
+- **Czytelną serializację** — `model_dump()`, `model_dump_json()` zamiast ręcznej konwersji `dataclasses.asdict()`.
+- **Metadane pól** — `Field(alias=..., json_schema_extra=...)` dla selektywnej serializacji (np. CSV vs baza).
+
+**Reguła migracji:** istniejące `@dataclass` nie muszą być migrowane na Pydantic, chyba że:
+1. Model przyjmuje dane z niezaufanego źródła (plik użytkownika, API, CSV).
+2. Wymagana jest walidacja danych wykraczająca poza proste typowanie.
+3. Model wymaga złożonej serializacji/deserializacji (aliasy, wykluczenia pól).
+
+Zasady Pydantic — patrz `copilot-instructions.md`, sekcja „Pydantic BaseModel".
 
 ### 3.2 Annote — adnotacja bounding-box
 
@@ -670,6 +704,21 @@ Lokalizacja: `Detectors/common/Detector.py`.
 
 ### 4.4 Warstwa prezentacji (GUI)
 
+#### Internacjonalizacja (i18n)
+
+Wszystkie teksty widoczne dla użytkownika (etykiety, tooltipy, komunikaty) **muszą** być owinięte w funkcję tłumaczącą — **zabrania się** twardego kodowania stringów UI w kodzie źródłowym.
+
+| Kontekst | Mechanizm | Przykład |
+|----------|-----------|----------|
+| Klasy dziedziczące po `QWidget`/`QDialog` | `self.tr("...")` | `button.setText(self.tr("Delete"))` |
+| Klasy **nie** dziedziczące po `QWidget` (np. `MainWindowGui`) | `QtCore.QCoreApplication.translate(context, text)` | `_translate("MainWindowGui", "Save")` |
+| Teksty z parametrami | `.format()` po tłumaczeniu | `self.tr("{count} items").format(count=5)` |
+
+- Kontekstem tłumaczenia jest nazwa klasy (pierwszy argument `translate()`).
+- Źródłowe teksty pisane **po angielsku**.
+- Każdy nowy plik z tłumaczeniami musi być zarejestrowany w `AITrackerConfig.pro` (sekcja `SOURCES`).
+- Szczegółowe zasady i przykłady — patrz `copilot-instructions.md`, sekcja „Tłumaczenia (i18n) w PyQt5".
+
 #### MainWindowGui — kontroler głównego okna
 
 Lokalizacja: `MainWindow.py`. Dziedziczy `Ui_MainWindow` (auto-generowany layout).
@@ -875,6 +924,19 @@ Projekt stosuje **guard clauses** (wczesne wyjścia) i **graceful degradation**:
 
 **Walidacja adnotacji:** metoda `__checkOfErrors()` w `Annoter` sprawdza nakładanie bbox (overlapping) za pomocą `prefilters.filter_iou_by_confidence()`. Błędy gromadzone w `self.errors` (`set[str]`).
 
+**Warunki brzegowe warstwy GUI (ViewerEditorImage):**
+
+Komponent `ViewerEditorImage` obsługuje defensywnie nieprzewidywalne akcje użytkownika:
+
+| Scenariusz | Reakcja |
+|------------|--------|
+| Rysowanie bbox całkowicie poza obszarem obrazu | Adnotacja odrzucona (walidacja współrzędnych w `mouseReleaseEvent`) — nie trafia do listy |
+| Bbox o zerowej powierzchni (kliknięcie bez przeciągnięcia) | Ignorowany — guard clause na minimalny rozmiar bbox |
+| Bbox wychodzący częściowo poza obraz | Przycinanie (clamp) współrzędnych do zakresu [0, 1] przed zapisem |
+| Brak załadowanego obrazu (pusty widget) | Tryby edycji zablokowane — `paintEvent` rysuje wyłącznie placeholder |
+| Scroll/zoom poza granice obrazu | Panning ograniczony do widocznego obszaru — zaciskanie offset do dopuszczalnego zakresu |
+| Próba usunięcia adnotacji przy braku adnotacji pod kursorem | Brak akcji — `RemoveAnnotation` operuje na hit-teście, brak trafienia = brak efektu |
+
 ---
 
 ## 6. Testowanie i jakość kodu
@@ -918,6 +980,34 @@ Dane testowe `test_yolo_world.py` w katalogu `tests/yolo_world/`.
 | Pyright | `strict` mode | Pełna statyczna analiza typów |
 | Ruff format | `line-length = 120` | Formatowanie kodu |
 | Ruff lint | Preview, 18 grup reguł | Kompleksowy lint |
+
+#### Zasady organizacji importów
+
+Importy w każdym pliku **muszą** być zorganizowane w trzech rozdzielonych pustą linią blokach, w następującej kolejności:
+
+1. **Biblioteka standardowa** — `os`, `logging`, `datetime`, `dataclasses`, itp.
+2. **Zależności zewnętrzne** — `numpy`, `cv2`, `pandas`, `PyQt5`, `ultralytics`, itp.
+3. **Moduły lokalne** — `engine.*`, `helpers.*`, `Detectors.*`, `Gui.*`, `views.*`, itp.
+
+Dodatkowe wymagania:
+- **Wyłącznie importy absolutne** — zabronione są importy relatywne (`from . import`, `from .. import`). Każdy import musi jednoznacznie wskazywać pełną ścieżkę modułu.
+- Sortowanie importów w obrębie bloków jest wymuszane przez regułę Ruff `I` (isort).
+- Reguła `I` jest aktywna w konfiguracji Ruff — naruszenia blokują CI.
+
+**Przykład poprawnej organizacji:**
+
+```python
+import logging
+import os
+from dataclasses import dataclass, field
+
+import cv2
+import numpy as np
+from PyQt5.QtCore import Qt
+
+from engine.annote import Annote, GetClassName
+from helpers.boxes import Bbox2Rect, iou
+```
 
 **Reguły ruff:**
 
