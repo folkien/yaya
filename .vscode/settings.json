@@ -1,34 +1,60 @@
 {
     "[python]": {
-        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
-            "source.organizeImports": "explicit"
+            "source.organizeImports": "always",
+            "source.fixAll.ruff": "explicit"
         },
+    },
+    "[toml]": {
+        "editor.formatOnSave": true
     },
     "files.trimTrailingWhitespace": true,
     "[markdown]": {
         "files.trimTrailingWhitespace": false
     },
-    "flake8.args": [
-        "--max-line-length=120",
-        "--ignore=E203,E501,W503"
-    ],
-    "mypy-type-checker.importStrategy": "fromEnvironment",
-    "mypy-type-checker.reportingScope": "workspace",
-    "mypy-type-checker.cwd": "${workspaceFolder}",
-    "mypy-type-checker.ignorePatterns": [
-        "**/site-packages/**/*.py",
-        ".vscode/*.py",
-        "scripts/*",
-        "scripts/**/*",
-        "scripts/**/**/*",
-
-    ],
-    "cSpell.enabled": false,
     "python.testing.pytestArgs": [
         "tests"
     ],
+    "github.copilot.nextEditSuggestions.enabled": true,
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+    "search.followSymlinks": false,
+    "files.exclude": {
+        "**/.git/objects/**": true,
+        "**/darknet/**": true,
+        "**/yaya/**": true,
+        "**/aisp-albumentations/**": true,
+    },
+    "files.watcherExclude": {
+            "**/.git/objects/**": true,
+            "**/.git/subtree-cache/**": true,
+            "**/darknet/**": true,
+            "**/yaya/**": true,
+            "**/aisp-albumentations/**": true,
+    },
+    "search.exclude": {
+            "**/.git/objects/**": true,
+            "**/.git/subtree-cache/**": true,
+            "**/darknet/**": true,
+            "**/yaya/**": true,
+            "**/aisp-albumentations/**": true,
+    },
+    "cmake.ignoreCMakeListsMissing": true,
+    "chat.agent.maxRequests": 40,
+    "chat.tools.autoApprove": true,
+    "chat.tools.terminal.autoApprove": {
+        "/^git\\s+(status|diff|log|add|commit|branch|checkout|stash|push|pull|fetch|merge|rebase|tag|remote|show|blame)/": true,
+        "/^(uv|pip)\\s+(sync|run|add|install|list|freeze|show)/": true,
+        "/^npm\\s+(test|run\\s+lint|install|ci)/": true,
+        "/^(ruff|pyright|pytest|mypy)\\b/": true,
+        "/^(echo|cat|less|tail|head|wc|ls|find|grep|pwd|cd|mkdir|cp|mv|touch|diff|file|which|whereis|env|printenv)\\b/": true,
+        "/^python\\s+(-c|-m)/": true,
+        "/^xargs\\s+((ls|echo|cat|less|tail|head|wc|ls|find|grep|pwd|cd|mkdir|cp|mv|touch|diff|file|which|whereis|env|printenv)\\b)/": true,
+        "rm": false,
+        "sudo": false,
+        ".venv/bin/python": true,
+        "/^source \\.venv/bin/activate && python": true,
+    },
 }

@@ -1,29 +1,109 @@
-[tool.poetry]
+[project]
 name = "yaya"
 version = "0.1.0"
 description = ""
-authors = ["Sławomir Paszko <s.paszko@aisp.pl>"]
+authors = [{ name = "Sławomir Paszko", email = "s.paszko@aisp.pl" }]
 readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "imagehash==4.3.1",
+    "pyqt5==5.15.7",
+    "opencv-python-headless==4.7.0.72",
+    "numpy<2.0.0",
+    "tqdm>=4.67.1",
+    "pandas>=2.2.3",
+    "ultralytics>=8.3.191",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-imagehash = "4.3.1"
-pyqt5 = "5.15.7"
-opencv-python-headless = "4.7.0.72"
-numpy = "<2.0.0"
-tqdm = "^4.67.1"
-pandas = "^2.2.3"
-ultralytics = "^8.3.191"
+[dependency-groups]
+dev = [
+    "isort>=6.0.1",
+    "pyqt5-stubs>=5.15.6.0",
+    "taplo>=0.9.3",
+    "ruff>=0.11.5",
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
+    "types-requests>=2.32.0.20250328",
+    "coverage>=7.8.0",
+    "pyright>=1.1.400",
+]
 
+[tool.pyright]
+typeCheckingMode = "strict"
+exclude = ['.venv', '.pytest_cache']
+reportMissingImports = "information"
+reportPrivateImportUsage = "none"
+reportUnknownArgumentType = false
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportUnknownParameterType = false
+reportMissingParameterType = false
+reportUnknownLambdaType = false
+reportUnusedVariable = false
+reportDeprecated = "warning"
+reportUnnecessaryComparison = "warning"
 
-[tool.poetry.group.dev.dependencies]
-flake8 = "^7.1.2"
-mypy = "^1.15.0"
-isort = "^6.0.1"
-flake8-pyproject = "^1.2.3"
-flake8-bugbear = "^24.12.12"
-pyqt5-stubs = "^5.15.6.0"
+[project.scripts]
+yolo-annotate = "yolo-annotate:main"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tool.ruff]
+line-length = 120
+extend-exclude = ['.venv', '.pytest_cache']
+
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+# https://docs.astral.sh/ruff/rules/
+preview = true
+explicit-preview-rules = true
+select = [
+    "E",
+    "F",
+    "B",
+    "Q",
+    "I",
+    "N",
+    "LOG",
+    "UP",
+    "UP045",
+    "RET",
+    "C4",
+    "ISC",
+    "PIE",
+    "RSE",
+    "SLOT",
+    "FAST",
+    "SIM",
+    "DOC",
+]
+#Ignoring as recommended at https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+ignore = [
+    "E111",   # Improper indentation
+    "E114",   # Invalid indentation inside a block
+    "E117",   # Over-indented code
+    "E501",   # Line too long
+    "Q000",   # Mixed quotes allowed
+    "Q001",   # Single quotes allowed for multi-line strings
+    "Q002",   # Single quotes allowed for docstrings
+    "Q003",   # Escaped quotes allowed
+    "COM812", # Trailing commas required for multiline lists/dicts
+    "COM819", # Prohibited trailing commas in certain cases
+    "ISC002", # Multi-line implicit string concatenation allowed
+    "W191",   # Tab indentation used
+    "D206",   # Docstring should be indented with spaces, not tabs
+    "D300",   # Use triple double quotes for docstrings
+    "N815",   # Function name convention issue (uppercase)
+    "LOG015", # Logging format string issue
+    "N802",   # Function name convention issue (uppercase)
+    "N999",   # Class name convention issue (uppercase)
+]
+
+
+[tool.mypy]
+exclude = ['.venv', '.pytest_cache', 'darknet.py']
