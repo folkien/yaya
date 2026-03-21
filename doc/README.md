@@ -45,6 +45,27 @@ Umożliwia zarówno ręczne rysowanie adnotacji, jak i automatyczną detekcję o
 
 ---
 
+## Dokumentacja szczegółowa katalogów
+
+Każdy katalog posiada dedykowany plik dokumentacji:
+
+| Katalog | Dokumentacja |
+|---|---|
+| Pliki korzeniowe | [root.md](root.md) |
+| `engine/` | [engine.md](engine.md) |
+| `Detectors/` | [Detectors.md](Detectors.md) |
+| `Gui/` | [Gui.md](Gui.md) |
+| `helpers/` | [helpers.md](helpers.md) |
+| `views/` | [views.md](views.md) |
+| `Decorators/` | [Decorators.md](Decorators.md) |
+| `models/` | [models.md](models.md) |
+| `tests/` | [tests.md](tests.md) |
+| `scripts/` | [scripts.md](scripts.md) |
+| `icons/` | [icons.md](icons.md) |
+| `yaya/` | [yaya.md](yaya.md) |
+
+---
+
 ## Opis katalogów
 
 ### Katalog główny (`/`)
